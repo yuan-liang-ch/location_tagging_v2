@@ -1,0 +1,115 @@
+AL	Alabama
+AK	Alaska
+AZ	Arizona
+AR	Arkansas
+CA	California
+CO	Colorado
+CT	Connecticut
+DE	Delaware
+FL	Florida
+GA	Georgia
+HI	Hawaii
+ID	Idaho
+IL	Illinois
+IN	Indiana
+IA	Iowa
+KS	Kansas
+KY	Kentucky
+LA	Louisiana
+ME	Maine
+MD	Maryland
+MA	Massachusetts
+MI	Michigan
+MN	Minnesota
+MS	Mississippi
+MO	Missouri
+MT	Montana
+NE	Nebraska
+NV	Nevada
+NH	New Hampshire
+NJ	New Jersey
+NM	New Mexico
+NY	New York
+NC	North Carolina
+ND	North Dakota
+OH	Ohio
+OK	Oklahoma
+OR	Oregon
+PA	Pennsylvania
+RI	Rhode Island
+SC	South Carolina
+SD	South Dakota
+TN	Tennessee
+TX	Texas
+UT	Utah
+VT	Vermont
+VA	Virginia
+WA	Washington
+WV	West Virginia
+WI	Wisconsin
+WY	Wyoming
+AS	American Samoa
+DC	District of Columbia
+FM	Federated States of Micronesia
+GU	Guam
+MH	Marshall Islands
+MP	Northern Mariana Islands
+PW	Palau
+PR	Puerto Rico
+VI	Virgin Islands
+Ala.	Alabama
+Alaska	Alaska
+Ariz.	Arizona
+Ark.	Arkansas
+Calif.	California
+Colo.	Colorado
+Conn.	Connecticut
+Del.	Delaware
+D.C.	District of Columbia
+Fla.	Florida
+Ga.	Georgia
+Hawaii	Hawaii
+Idaho	Idaho
+Ill.	Illinois
+Ind.	Indiana
+Iowa	Iowa
+Kans.	Kansas
+Ky.	Kentucky
+La.	Louisiana
+Maine	Maine
+Md.	Maryland
+Mass.	Massachusetts
+Mich.	Michigan
+Minn.	Minnesota
+Miss.	Mississippi
+Mo.	Missouri
+Mont.	Montana
+Neb.	Nebraska
+Nebr.	Nebraska
+Nev.	Nevada
+N.H.	New Hampshire
+N.J.	New Jersey
+N.Mex.	New Mexico
+N.Y.	New York
+N.C.	North Carolina
+N.Dak.	North Dakota
+Ohio	Ohio
+Okla.	Oklahoma
+Ore.	Oregon
+Oreg.	Oregon
+Pa.	Pennsylvania
+R.I.	Rhode Island
+S.C.	South Carolina
+S.D.	South Dakota
+S.Dak.	South Dakota
+Tenn.	Tennessee
+Tex.	Texas
+Texas	Texas
+Utah	Utah
+Vt.	Vermont
+Va.	Virginia
+Wash.	Washington
+W.Va.	West Virginia
+Wis.	Wisconsin
+Wisc.	Wisconsin
+Wyo.	Wyoming
