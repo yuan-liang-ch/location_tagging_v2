@@ -13,9 +13,9 @@ import logging
 import pymysql
 import pandas as pd
 from botocore.client import Config
-from config import Meta_config
 
-from utils import *
+from .config import Meta_config
+from .utils import *
 
 
 PUBLISHER_LOCATION_FILE = "publisher_location_mapping.tsv"
@@ -36,10 +36,10 @@ def upload_to_s3(bucket, folder, local_file_path):
         )
     )
 
-    s3 = boto3.client('s3', config=config)
+    s3 = boto3.client("s3", config=config)
     data = open(local_file_path, "rb")
     filename = local_file_path.split("/")[-1]
-    key = folder + '/' + filename
+    key = folder + "/" + filename
     s3.upload_fileobj(data, bucket, key)
 
 def download_s3_file(file_name, local_file_path):
@@ -55,7 +55,7 @@ def download_s3_file(file_name, local_file_path):
     None
     """
     s3 = boto3.resource("s3")
-    bucket = s3.Bucket(os.environ['S3_BUCKET'])
+    bucket = s3.Bucket(os.environ["S3_BUCKET"])
     bucket.download_file(file_name, local_file_path)
     logger.info(f"Downloading {file_name} from S3...")
 
@@ -67,11 +67,11 @@ def get_connection_to_location_master_db():
     cursor : pymysql.cursors.DictCursor
     """
     return pymysql.connect(
-        host=os.environ['locationMasterDBHost'],
-        user=os.environ['locationMasterDBUser'],
-        password=os.environ['locationMasterDBPassword'],
-        db=os.environ['locationMasterDB'],
-        charset='utf8mb4',
+        host=os.environ["locationMasterDBHost"],
+        user=os.environ["locationMasterDBUser"],
+        password=os.environ["locationMasterDBPassword"],
+        db=os.environ["locationMasterDB"],
+        charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor
     )
 
@@ -108,7 +108,7 @@ def get_publisher_location_dataframe():
     -------
     DataFrame
     """
-    local_file_path = os.path.join("./", PUBLISHER_LOCATION_FILE)
+    local_file_path = os.path.join("./src/", PUBLISHER_LOCATION_FILE)
 
     if not os.path.exists(local_file_path):
         download_s3_file(PUBLISHER_LOCATION_FILE, local_file_path)
@@ -120,15 +120,15 @@ def get_us_states_shorthand(config=Meta_config):
     """
     """
     us_states = config.us_states
-    df_states = pd.DataFrame(us_states, columns=['name', 'short_name'])
-    df_states['name'] = df_states['name'].apply(lambda x: x.replace(" ", "-"))
+    df_states = pd.DataFrame(us_states, columns=["name", "short_name"])
+    df_states["name"] = df_states["name"].apply(lambda x: x.replace(" ", "-"))
     states_full = list(set(df_states.name.values.tolist()))
     states_short = list(set(df_states.short_name.values.tolist()))
     states = states_full + states_short
     return df_states, states_full, states_short, states
 
 def get_same_name_locations_dataframe():
-    local_file_path = os.path.join("./", SAME_NAME_LOCATIONS_FILE)
+    local_file_path = os.path.join("./src/", SAME_NAME_LOCATIONS_FILE)
 
     if not os.path.exists(local_file_path):
         download_s3_file(SAME_NAME_LOCATIONS_FILE, local_file_path)

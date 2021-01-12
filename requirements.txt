@@ -1,0 +1,13 @@
+numpy==1.19.4
+pandas==1.0.3
+flashtext==2.7
+boto3==1.13.25
+botocore==1.16.25
+scikit-learn==0.22.1
+tornado==5.0.2
+requests==2.21.0
+ConcurrentLogHandler==0.9.1
+pendulum==2.1.0
+pymysql==0.10.1
+ipython==7.13.0
+nltk==3.4.5

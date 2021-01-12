@@ -18,12 +18,12 @@ def timeit(method):
         ts = time.time()
         result = method(*args, **kwargs)
         te = time.time()
-        logging.info('[TIME] %r %2.2f sec' % (method.__name__, te-ts))
+        logging.info("[TIME] %r %2.2f sec" % (method.__name__, te-ts))
         return result
 
     return timed
 
-def pprint(obj, obj_name='', print_f=logger.info):
+def pprint(obj, obj_name="", print_f=logger.info):
     message = json.dumps(obj, indent=4, ensure_ascii=False)
     if obj_name:
         message = f"{obj_name} = " + message
@@ -44,24 +44,24 @@ def send_analysis_log(seaa_event, locations):
     dtime = datetime.utcnow()
     dt = dtime.strftime("%Y-%m-%d")
     hh = dtime.strftime("%H")
-    sequence = seaa_event['sequence']
+    sequence = seaa_event["sequence"]
 
     # only save when sequence if available
     if sequence:
-        message_template = '[ANALYSIS]|{dt}|{hh}|{seq}|{loc_id}|{loc_type}|{name}|{algor}|{salience}'
+        message_template = "[ANALYSIS]|{dt}|{hh}|{seq}|{loc_id}|{loc_type}|{name}|{algor}|{salience}"
 
         # record only valid locations
         valid_locs = [
-            loc for loc in locations if loc['locationId'] != INVALID_LOCATION_ID]
+            loc for loc in locations if loc["locationId"] != INVALID_LOCATION_ID]
         for loc in valid_locs:
             message = message_template.format(dt=dt,
                                               hh=hh,
                                               seq=sequence,
-                                              loc_id=loc['locationId'],
-                                              loc_type=loc['locationType'],
-                                              name=loc['name'],
-                                              algor=loc['algorithm'],
-                                              salience=loc['salience'])
+                                              loc_id=loc["locationId"],
+                                              loc_type=loc["locationType"],
+                                              name=loc["name"],
+                                              algor=loc["algorithm"],
+                                              salience=loc["salience"])
             logger.info(message)
 
 @timeit
@@ -88,11 +88,11 @@ def write_to_stream(event_id, event, output, region_name=None, stream_name=None)
     stream_name = os.environ.get("KINESIS_STREAM", "") if not stream_name else region_name
 
     log = {}
-    fields = ['sequence', 'slimTitle', 'features', 'url']
+    fields = ["sequence", "slimTitle", "features", "url"]
     for field in fields:
         log[field] = event[field]
 
-    log["locations"] = json.dumps(output["locations"])
+    log["locations"] = json.dumps(output["locations"], default=str)
 
     config = Config(
         connect_timeout=1,
@@ -101,12 +101,11 @@ def write_to_stream(event_id, event, output, region_name=None, stream_name=None)
             max_attempts=3
         )
     )
-    print(log)
 
-    client = boto3.client('kinesis', region_name=region_name, config=config)
+    client = boto3.client("kinesis", region_name=region_name, config=config)
     res = client.put_record(
         StreamName=stream_name,
-        Data=json.dumps(log) + '\n',
+        Data=json.dumps(log) + "\n",
         PartitionKey=str(event_id)
     )
     print(res)

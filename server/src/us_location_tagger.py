@@ -6,22 +6,22 @@ import json
 import yaml
 import logging
 
-from loader import *
-from utils import *
-from location_retrieval import *
-from location_disambiguation import Disambiguation
-from location_classifier import LocationClassifier
-from geocoding_service import SummaryParser
-from config import Meta_config
-from PlacelineTagger import PlacelineTagger
-from FeatureExtractor import FeatureExtractor
+from .loader import *
+from .utils import *
+from .location_retrieval import *
+from .location_disambiguation import Disambiguation
+from .location_classifier import LocationClassifier
+from .geocoding_service import SummaryParser
+from .config import Meta_config
+from .PlacelineTagger import PlacelineTagger
+from .FeatureExtractor import FeatureExtractor
 
 
 logger = logging.getLogger()
 logger.setLevel("INFO")
 
 # read config file
-yaml_stream = open("./config.yaml", "r")
+yaml_stream = open("./src/config.yaml", "r")
 configs = yaml.load(yaml_stream)
 Meta_config.setup_local_test_env(configs)
 
@@ -98,9 +98,9 @@ class LocationTagger(object):
             }
         """
         debug = event.get("debug", False)
-        custom_features = ['us_location_tagging_ver_7.1']
+        custom_features = ["us_location_tagging_ver_7.1"]
 
-        #pprint(event, 'event from se-aa')
+        #pprint(event, "event from se-aa")
 
         # retrieval locations
         feature_locations = self.feature_retrieval_obj.get_locations_via_features(
@@ -108,6 +108,7 @@ class LocationTagger(object):
         google_locations, text_locations, waiting_for_disambugious = self.nlp_retrieval_obj.get_locations(
             event)
         locations = feature_locations + google_locations + text_locations
+        logger.info("[CandidateGeneration] sequence %s, Retrieval %d locations." % (event.get("sequence", ""), len(locations)))
 
         # Disambiguation
         admin_candidates = self.summary_parser.get_admin_area_candidates(nlp_retrieval_obj=self.nlp_retrieval_obj,
@@ -120,9 +121,11 @@ class LocationTagger(object):
                                                                          url=event.get("url", ""))
 
         locations = self.disambiguate_obj.check_locations(
-            event.get('url', ""), event.get(
+            event.get("url", ""), event.get(
                 "body", ""), self.publisher_retrieval_obj.df_pub_loc, admin_candidates,
             locations, waiting_for_disambugious)
+        logger.info("[Location Disambiguation] sequence %s, Retrieval %d locations." % (event.get("sequence", ""), len(locations)))
+        #logger.info("[Location Disambiguation] sequence %s, locations are %s" % (event.get("sequence", ""), json.dumps(locations)))
 
         # Location Filter
         locations = self.location_feature_extractor.extractFeatures(event.get(
@@ -131,10 +134,10 @@ class LocationTagger(object):
             return locations
         location_result = self.lc_filter.predict_doc(locations)
 
-        output = {"locations": location_result, 'features': custom_features}
+        output = {"locations": location_result, "features": custom_features}
 
         # Output data to kinesis
-        # write_to_stream(event.get("sequence", ""), event, output)
+        write_to_stream(event.get("sequence", ""), event, output)
         return output
 
 

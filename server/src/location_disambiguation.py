@@ -4,9 +4,9 @@ __all__ = ["Disambiguation", "Filter"]
 import re
 import logging
 
-from utils import pprint, timeit
-from location_retrieval import Retrieval
-from geocoding_service import SummaryParser
+from .utils import pprint, timeit
+from .location_retrieval import Retrieval
+from .geocoding_service import SummaryParser
 
 from IPython import embed
 
@@ -25,11 +25,11 @@ class Disambiguation(object):
         result = []
         escaped_name = loc_name.lower()
         for admin_area_alias in self.full_2_short.get(admin, []) + [admin]:
-            comma_optional = '?'
+            comma_optional = "?"
             if admin_area_alias in ["or", "in"]:
-                comma_optional = ''
+                comma_optional = ""
             escaped_alias = admin_area_alias
-            result.append(f'{escaped_name},{comma_optional} {escaped_alias}')
+            result.append(f"{escaped_name},{comma_optional} {escaped_alias}")
         return result
 
     def featurize_disambig_candidate(self, loc_name, possible_admins, admin_candidates, text, verbose=False):
@@ -49,9 +49,9 @@ class Disambiguation(object):
             for source, props in merged.items():
                 if source == "_features": continue
                 if source != "stat":
-                    features[admin][f"from_{source}"] = True
+                    features[admin][f"from_{source}"] = "true"
                 else:
-                    features[admin]["stat:count"] = props["count"]
+                    features[admin]["stat_count"] = props["count"]
 
         if verbose:
             pprint(features)
@@ -117,7 +117,7 @@ class Disambiguation(object):
             
             if mark:
                 updated_loc["algorithm"] = self.inclusion_testing_prefix + \
-                    loc['algorithm']
+                    loc["algorithm"]
     
             updated_locations.append(updated_loc)
 
@@ -125,7 +125,7 @@ class Disambiguation(object):
         # if is_national:
         #     print("\nNational news, ignore location tagging.\n")
         #     updated_locations = []
-        #     match_features['article_features'].append(
+        #     match_features["article_features"].append(
         #         "us_location_tagging_national")
 
         return updated_locations
@@ -133,34 +133,34 @@ class Disambiguation(object):
     def disambig_admin_area(self, possible_admins, features):
         # Exact match
         def text_specific_mention(c, f):
-            if 'specific_mention' in f:
+            if "specific_mention" in f:
                 return 10
             return 0
 
         def pub_support(c, f):
-            if 'from_publisher' in f:
+            if "from_publisher" in f:
                 return 1
             return 0
 
         def url_support(c, f):
-            if 'from_url' in f:
+            if "from_url" in f:
                 return 1
             return 0
 
         def text_support(c, f):
-            if 'from_text' in f:
+            if "from_text" in f:
                 return 1
             return 0
 
         def has_multiple_locs(c, f):
-            return f.get('stat:count', 0)
+            return f.get("stat_count", 0)
 
         hard_rules = [
-            (text_specific_mention, 'TextSpecificMention'),
-            (pub_support, 'PublisherSupport'),
-            (url_support, 'URLSupport'),
-            (text_support, 'TextSupport'),
-            (has_multiple_locs, 'MultipleSameStateLocs'),
+            (text_specific_mention, "TextSpecificMention"),
+            (pub_support, "PublisherSupport"),
+            (url_support, "URLSupport"),
+            (text_support, "TextSupport"),
+            (has_multiple_locs, "MultipleSameStateLocs"),
         ]
 
         hard_rule_match = {}

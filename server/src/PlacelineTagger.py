@@ -11,19 +11,19 @@ class StateCodeManager:
         self.loadFile(fn)
 
     def loadFile(self, fn):
-        with open(fn, 'r', encoding="utf-8") as f:
+        with open(fn, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                fields = line.split('\t')
+                fields = line.split("\t")
                 if len(fields) != 2:
                     continue
                 name = fields[1].strip()
                 code0 = fields[0].strip()
                 codes = [code0]
-                if '.' in code0:
+                if "." in code0:
                     # the following are some ad hoc tricks to overcome the irregularities in NL text
-                    code1 = code0.replace('.', '. ').strip()
-                    code2 = code1.replace('.', '')
+                    code1 = code0.replace(".", ". ").strip()
+                    code2 = code1.replace(".", "")
                     codes.append(code1)
                     codes.append(code2)
                 # note that the full name of a state should also be registered as its code
@@ -54,22 +54,22 @@ class WikiDataManager:
         self.mapping = {}
         self.loadFile(fn)
     
-    #essentially this function is about retrieving the 'STATE' info in input string 's'
+    #essentially this function is about retrieving the "STATE" info in input string "s"
     def parseHierarchicalInfo(self, s):
-        fields = s.split(', ')
+        fields = s.split(", ")
         if len(fields) == 2:
             return fields[1].strip()
         else:
             return s.strip()
 
     def parseAmbiguityInfo(self, s):
-        return [self.parseHierarchicalInfo(p) for p in s.split(' ||| ')]
+        return [self.parseHierarchicalInfo(p) for p in s.split(" ||| ")]
 
     def loadFile(self, fn):
-        with open(fn, 'r', encoding="utf-8") as f:
+        with open(fn, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                fields = line.split('\t')
+                fields = line.split("\t")
                 if len(fields) != 2:
                     continue
                 loc_name = fields[0].strip()
@@ -80,8 +80,8 @@ class WikiDataManager:
     def hasLocName(self, s):
         return s in self.mapping
     
-    # # if the location name 's' itself is registered as (one of) its interpretation
-    # # then 's' does not need to be specified with STATE
+    # # if the location name "s" itself is registered as (one of) its interpretation
+    # # then "s" does not need to be specified with STATE
     # def hasNoNeedForState(self, s):
     #     return s in self.mapping[s]
     
@@ -110,7 +110,7 @@ class PlacelineTagger:
         else:
             return s
 
-    def __init__(self, state_code_file='state_code_listing.txt', wiki_data_file='wiki_loc_names_1+2.txt'):
+    def __init__(self, state_code_file="state_code_listing.txt", wiki_data_file="wiki_loc_names_1+2.txt"):
         self.state_code_mgr = StateCodeManager(state_code_file)
         self.wiki_data_mgr = WikiDataManager(wiki_data_file)
         self.simple_pattern = re.compile(r"([A-Z\.\ \-]{3,})[,\s]*[(-]")
@@ -122,34 +122,34 @@ class PlacelineTagger:
             return None
         else:
             cand = matchObj.group(1).strip().lower()
-            cand_toks = cand.split(' ')
+            cand_toks = cand.split(" ")
             cand_toks = [PlacelineTagger.capitalizeName(tok) for tok in cand_toks]
             for i in range(len(cand_toks)):
-                suffix = ' '.join(cand_toks[i:])
+                suffix = " ".join(cand_toks[i:])
                 #tricky case handling:
-                if suffix == 'Oh':
+                if suffix == "Oh":
                     return None
-                if suffix == 'Washington':
-                    return 'Washington/District of Columbia'
-                if suffix == 'New York':
-                    return 'New York/New York'
+                if suffix == "Washington":
+                    return "Washington/District of Columbia"
+                if suffix == "New York":
+                    return "New York/New York"
                 if self.state_code_mgr.hasStateName(suffix):
                     return suffix
                 elif self.wiki_data_mgr.hasLocName(suffix):
                     unambigous_state = self.wiki_data_mgr.getUnambiguousInfo(suffix)
                     if unambigous_state:
-                        return suffix + '/' + unambigous_state
+                        return suffix + "/" + unambigous_state
             return None
 
     def getPrecedingContext(self, toks, i):
-        return ' '.join(toks[max(0,i-5):i]) 
+        return " ".join(toks[max(0,i-5):i]) 
 
     def findCompletePlaceline(self, toks):
         for i,tok in enumerate(toks):
             cand_state_code = tok.strip()
             if len(cand_state_code) == 0:
                 continue
-            if cand_state_code[-1] == ',':
+            if cand_state_code[-1] == ",":
                 cand_state_code = cand_state_code[:-1]
             if self.state_code_mgr.hasState(cand_state_code):
                 state_full_name = self.state_code_mgr.getStateName(cand_state_code)
@@ -159,17 +159,17 @@ class PlacelineTagger:
                 matchObj = re.search(self.complete_pattern, preceding)
                 if matchObj:
                     cand = matchObj.group(1).strip().lower()
-                    cand_toks = cand.split(' ')
+                    cand_toks = cand.split(" ")
                     cand_toks = [PlacelineTagger.capitalizeName(tok) for tok in cand_toks]
                     for i in range(len(cand_toks)):
-                        suffix = ' '.join(cand_toks[i:])
+                        suffix = " ".join(cand_toks[i:])
                         if self.wiki_data_mgr.hasLocNameAndState(suffix, state_full_name):
-                            return suffix + '/' + state_full_name
+                            return suffix + "/" + state_full_name
         return None
 
-    # a Document is simply treated as single 'str' object
+    # a Document is simply treated as single "str" object
     def processDocument(self, doc):
-        doc_toks = doc.split(' ')
+        doc_toks = doc.split(" ")
         # if len(doc_toks) > PlacelineTagger.DOC_TOK_MAX_LEN:
         #     doc_toks = doc_toks[:PlacelineTagger.DOC_TOK_MAX_LEN]
         result = self.findCompletePlaceline(doc_toks)
@@ -179,15 +179,15 @@ class PlacelineTagger:
 
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     tagger = PlacelineTagger("./_DATA/state_code_listing.txt", "./_DATA/wiki_loc_names_1+2.txt")
-    with open(argv[2], 'w') as fout:
-        with open(argv[1], 'r') as f:
+    with open(argv[2], "w") as fout:
+        with open(argv[1], "r") as f:
             line_cnt = 0
             for line in f:
                 line_cnt += 1
                 line = line.strip()
-                fields = line.split('\t')
+                fields = line.split("\t")
                 if len(fields) != 4:
                     continue
                 ID = fields[0]

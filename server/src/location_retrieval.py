@@ -13,7 +13,7 @@ import pandas as pd
 from urllib.parse import urlparse
 from flashtext.keyword import KeywordProcessor
 
-from loader import (
+from .loader import (
     query_location_master_db,
     get_publisher_location_dataframe,
     get_us_states_shorthand,
@@ -21,8 +21,8 @@ from loader import (
     load_wiki_entities,
     load_poi_info
 )
-from utils import *
-from geocoding_service import GeoService, SummaryParser
+from .utils import *
+from .geocoding_service import GeoService, SummaryParser
 
 
 logger = logging.getLogger()
@@ -50,9 +50,9 @@ class Retrieval(object):
             return [surface_form]
         if surface_form in self.states_short:
             state = self.short_2_full[surface_form]
-            return [x.replace('-', ' ') for x in state]
+            return [x.replace("-", " ") for x in state]
         # possibly a postal abbreviation plus period
-        if len(surface_form) == 3 and surface_form.endswith('.'):
+        if len(surface_form) == 3 and surface_form.endswith("."):
             return self.get_state_full_name_for_maybe_short(surface_form[:2])
         return None
 
@@ -135,7 +135,7 @@ class NlpRetrieval(Retrieval):
         return summaries, found_names, unfound_names
     
     def get_locations(self, event):
-        text_location_names = self.get_text_entity_names(event.get('slimTitle', ""), event.get('body', ""))
+        text_location_names = self.get_text_entity_names(event.get("slimTitle", ""), event.get("body", ""))
         google_locations, google_found_names, google_unfound_names = self.get_locations_via_google_entities(
             event.get("googleEntities", []))
         text_location_names = list(set(text_location_names + google_unfound_names))
@@ -147,7 +147,7 @@ class NlpRetrieval(Retrieval):
         patterns = [
             ("loc1, loc2, pub", "([a-z ]*),? ([a-z ]+)\.? *\((.*)\)"),
         ]
-        text = text.replace('—', '-')
+        text = text.replace("—", "-")
         if lower:
             text = text.lower()
         words = re.split(r"\s", text)
@@ -162,15 +162,15 @@ class NlpRetrieval(Retrieval):
                 for item in match:
                     tokens = item[:2]
                     _, loc2 = tokens
-                    loc2 = loc2.replace(' ', '-')
+                    loc2 = loc2.replace(" ", "-")
                     full_name = self.get_state_full_name_for_maybe_short(loc2)
                     if full_name is not None:
                         for state in full_name:
                             matches_found.append(
-                                (state, {'place': 'Beginning'}))
+                                (state, {"place": "Beginning"}))
 
         # name occurrences (except postal abbreviations)
-        states = [s.replace('-', ' ') for s in self.states]
+        states = [s.replace("-", " ") for s in self.states]
         minimal_freq = 3
         for s in states:
             if s not in words: continue
@@ -179,13 +179,13 @@ class NlpRetrieval(Retrieval):
             if freq >= minimal_freq and min_index < 200:
                 full_states = self.get_state_full_name_for_maybe_short(s)
                 for state in full_states:
-                    matches_found.append((state, {'place': 'Body', 'count': freq}))
+                    matches_found.append((state, {"place": "Body", "count": freq}))
 
         result = {}
         for admin, matches in itertools.groupby(matches_found, lambda m: m[0]):
             props = [m[1] for m in matches]
-            result_props = {'place': [p['place'] for p in props],
-                            'count': sum(p.get('count', 1) for p in props)}
+            result_props = {"place": [p["place"] for p in props],
+                            "count": sum(p.get("count", 1) for p in props)}
             result[admin] = result_props
 
         return result
@@ -218,12 +218,12 @@ class PublisherRetrieval(Retrieval):
     def match_url_to_pub_domain(self, url):
         host = self.get_host(url, get_minimal_form=True)
         path_start = url.lower().index(host) + len(host)
-        path_tokens = [t for t in url[path_start:].split('/') if len(t) != 0]
+        path_tokens = [t for t in url[path_start:].split("/") if len(t) != 0]
         result = None
         key_tokens = []
         for token in [host, *path_tokens]:
             key_tokens.append(token)
-            key = '/'.join(key_tokens)
+            key = "/".join(key_tokens)
             if key in self.df_pub_loc.domain.values:
                 result = key
         return result
@@ -255,12 +255,12 @@ class PublisherRetrieval(Retrieval):
         locations = []
 
         for record in records:
-            location = self.geo_services.request_location_summary(by="location_id", location_id=record['location_id'])
-            location['algorithm'] = 'LocalPublisher'
-            location['salience'] = record['score']
+            location = self.geo_services.request_location_summary(by="location_id", location_id=record["location_id"])
+            location["algorithm"] = "LocalPublisher"
+            location["salience"] = record["score"]
             locations.append(location)
 
-        pprint(locations, "locations associated with publisher")
+        #pprint(locations, "locations associated with publisher")
         return locations
 
 
@@ -270,9 +270,9 @@ class FeatureRetrieval(Retrieval):
         super().__init__()
         self.predefined_features = self.get_location_features()
         self.include_feature_records = [
-            f for f in self.predefined_features if f['condition_type'] == "INCLUDE"]
+            f for f in self.predefined_features if f["condition_type"] == "INCLUDE"]
         self.exclude_feature_names = [
-            f['feature'] for f in self.predefined_features if f['condition_type'] == "EXCLUDE"]
+            f["feature"] for f in self.predefined_features if f["condition_type"] == "EXCLUDE"]
 
     def get_location_features(self):
         """Return a list of location-feature records
@@ -294,18 +294,18 @@ class FeatureRetrieval(Retrieval):
 
     def get_locations_via_features(self, features):
         locations = []
-        include_location_ids = [f['location_id']
-                                for f in self.include_feature_records if f['feature'] in features]
+        include_location_ids = [f["location_id"]
+                                for f in self.include_feature_records if f["feature"] in features]
         if include_location_ids:
             if not [f for f in features if f in self.exclude_feature_names]:
                 for location_id in include_location_ids:
                     summary = self.geo_services.request_location_summary_id(
                         location_id=location_id)
                     if summary:
-                        summary['source'] = 'Features'
-                        summary['salience'] = self.geo_services.feature_rule_salience
+                        summary["source"] = "Features"
+                        summary["salience"] = self.geo_services.feature_rule_salience
                         locations.append(summary)
-        pprint(locations, "locations associated with features")
+        #pprint(locations, "locations associated with features")
         return locations
 
 
@@ -324,7 +324,7 @@ class UrlRetrieval(Retrieval):
                 # check next token to make sure it's not refering some county or city
                 if i != len(tokens) - 1:
                     next_t = tokens[i + 1]
-                    if not next_t in ['city', 'county']:
+                    if not next_t in ["city", "county"]:
                         state = t
 
                 break  # use first occurence as prediction

@@ -14,7 +14,6 @@ import tornado.ioloop
 from tornado.options import define, options
 import tornado.web
 
-#import conf.conf as conf
 from conf.logging_config import logging_conf
 from handlers.predict_handler import PredictHandler
 from src.us_location_tagger import *
