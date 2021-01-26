@@ -26,7 +26,15 @@ configs = yaml.load(stream)
 Meta_config.setup_local_test_env(configs)
 
 
+def detect_int(x):
+    try:
+        int(x)
+        return True
+    except:
+        return False
+
 def process_entity(entity_str):
+    if entity_str == "" or detect_int(entity_str): return []
     segs = entity_str.split("]],")
     result = []
     for s in segs:
@@ -62,7 +70,7 @@ def get_data():
         from \
         (select DISTINCT id, analysis.locations as locations, analysis.tags as features, analysis.googleentities as googleEntities, resolvedurl as url \
         from hive.default.unified_article_metadata_updates \
-        where analysis.language = 'EN' and discoverytimestamp >= 1606780800 and discoverytimestamp <= 1606867200 limit 10000) a \
+        where analysis.language = 'EN' and discoverytimestamp >= 1606780800 and discoverytimestamp <= 1606867200) a \
         JOIN \
         (select DISTINCT structure.slimtitle as slimTitle, structure.textcontent as body, resolvedurl as url \
         from hive_ad.smartnews.raw_url_crawls_orc \
@@ -70,6 +78,40 @@ def get_data():
         ON a.url = b.url"
     )
     return data
+
+def parse_result_to_martin_request(locations):
+    cities = []
+    counties = []
+    states = []
+    for loc in locations:
+        if loc == []:
+            cities.append("")
+            counties.append("")
+            states.append("")
+        else:
+            loc = loc[0]
+            loc_name = loc["locationName"]
+            loc_type = loc["locationType"]
+            if loc_type == "LOCALITY":
+                cities.append(loc_name)
+                for item in loc["addressComponents"]:
+                    if item["locationType"] == "ADMIN_AREA":
+                        states.append(item["locationName"])
+                    if item["locationType"] == "SUB_ADMIN_AREA":
+                        counties.append(item["locationName"])
+            elif loc_type == "SUB_ADMIN_AREA":
+                cities.append("")
+                for item in loc["addressComponents"]:
+                    if item["locationType"] == "ADMIN_AREA":
+                        states.append(item["locationName"])
+                        break
+                counties.append(loc_name)
+            elif loc_type == "ADMIN_AREA":
+                cities.append("")
+                counties.append("")
+                states.append(loc_name)
+    return cities, counties, states
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -115,24 +157,39 @@ if __name__ == "__main__":
     count_local_v1 = 0
     count_local_v2 = 0
     count_local = 0
-    data = get_data()
+    #data = get_data()
+    data = pd.read_csv("/home/yuan.liang/location_tagging/location_tagging_v1_no_result_article_samples.tsv", sep="\t", header=0)
     data.drop_duplicates(subset=["sequence"], inplace=True)
     print("Total base is %d" % (len(data)))
-     
+    
+    location_result = [] 
     for _, row in data.iterrows():
-        row["googleEntities"] = process_entity_list(row["googleEntities"])
+        #row["googleEntities"] = process_entity_list(row["googleEntities"])
+        try:
+            row["googleEntities"] = process_entity(row["google_entities"])
+        except:
+            row["googleEntities"] = []
+            print(row["google_entities"])
         locations = main(row)["locations"]
-        if locations != []: count_v2 += 1
-        if row["locations"] is not None: count_v1 += 1
-        if 'en_us_local_domains' in row["features"] or 'en_us_local_domains_vip' in row["features"]:
-            count_local += 1
-            if locations != []: count_local_v2 += 1
-            if row["locations"] is not None: count_local_v1 += 1
-    print(count_v1)
-    print(count_v2)
-    print(count_local)
-    print(count_local_v1)
-    print(count_local_v2)
+        location_result.append(locations)
+        #location_result.append(json.dumps(locations, default=str))
+        #if locations != []: count_v2 += 1
+        #if row["locations"] is not None: count_v1 += 1
+        #if 'en_us_local_domains' in row["features"] or 'en_us_local_domains_vip' in row["features"]:
+        #    count_local += 1
+        #    if locations != []: count_local_v2 += 1
+        #    if row["locations"] is not None: count_local_v1 += 1
+    cities, counties, states = parse_result_to_martin_request(location_result)
+    data["city"] = cities
+    data["county"] = counties
+    data["state"] = states
+    #data["location_tagging_v2"] = location_result
+    data.to_csv("/home/yuan.liang/location_tagging/location_tagging_v1_no_result_article_samples_v2_result.tsv", index=False)
+    #print(count_v1)
+    #print(count_v2)
+    #print(count_local)
+    #print(count_local_v1)
+    #print(count_local_v2)
 
     #data = pd.read_csv("location_taggging_v2_391_no_candidates.tsv", sep="\t", header=0)
     #data["sequence"] = data["link_id"]
