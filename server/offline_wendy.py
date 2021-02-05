@@ -90,28 +90,35 @@ def parse_result_to_martin_request(locations):
             states.append("")
         else:
             loc = loc[0]
-            loc_name = loc["locationName"]
+            loc_name = loc["name"]
             loc_type = loc["locationType"]
             if loc_type == "LOCALITY":
                 cities.append(loc_name)
+                flag_1, flag_2 = 0, 0
                 for item in loc["addressComponents"]:
                     if item["locationType"] == "ADMIN_AREA":
-                        states.append(item["locationName"])
+                        states.append(item["name"])
+                        flag_1 = 1
                     if item["locationType"] == "SUB_ADMIN_AREA":
-                        counties.append(item["locationName"])
+                        counties.append(item["name"])
+                        flag_2 = 1
+                if flag_1 == 0: states.append("")
+                if flag_2 == 0: counties.append("")
             elif loc_type == "SUB_ADMIN_AREA":
                 cities.append("")
+                flag_1 = 0
                 for item in loc["addressComponents"]:
                     if item["locationType"] == "ADMIN_AREA":
-                        states.append(item["locationName"])
+                        states.append(item["name"])
+                        flag_1 = 1
                         break
+                if flag_1 == 0: states.append("")
                 counties.append(loc_name)
             elif loc_type == "ADMIN_AREA":
                 cities.append("")
                 counties.append("")
                 states.append(loc_name)
     return cities, counties, states
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -159,6 +166,8 @@ if __name__ == "__main__":
     count_local = 0
     #data = get_data()
     data = pd.read_csv("/home/yuan.liang/location_tagging/location_tagging_v1_no_result_article_samples.tsv", sep="\t", header=0)
+    data["slimTitle"] = data["title"]
+    
     data.drop_duplicates(subset=["sequence"], inplace=True)
     print("Total base is %d" % (len(data)))
     

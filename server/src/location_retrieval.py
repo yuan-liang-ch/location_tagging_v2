@@ -8,6 +8,7 @@ import json
 import logging
 import itertools
 import collections
+from collections import defaultdict
 
 import pandas as pd
 from urllib.parse import urlparse
@@ -56,6 +57,44 @@ class Retrieval(object):
             return self.get_state_full_name_for_maybe_short(surface_form[:2])
         return None
 
+    def retrieval_filter_locations(self, feature_locations, publisher_locations, google_locations, text_locations):
+        no_need_disambigious = []
+        waiting_for_disambigious = []
+        loc_name = {}
+        loc_dic = defaultdict(set)
+        for loc in publisher_locations:
+            if loc['locationName'] not in loc_name:
+                no_need_disambigious.append(loc)
+                loc_name[loc["locationName"]] = 1
+        for loc in feature_locations:
+            if loc['locationName'] not in loc_name:
+                no_need_disambigious.append(loc)
+                loc_name[loc["locationName"]] = 1
+        for loc in google_locations:
+            if loc['locationName'] not in loc_name:
+                no_need_disambigious.append(loc)
+                loc_name[loc['locationName']] = 1
+        for loc in text_locations:
+            if loc["locationName"] not in loc_name:
+                if loc["locationType"] in ["LOCALITY", "SUB_ADMIN_AREA"]:
+                    waiting_for_disambigious.append(loc)
+                    address_components = loc["addressComponents"]
+                    for item in address_components:
+                        if item["locationType"] == "ADMIN_AREA":
+                            loc_dic[f"{loc['locationName']}:{loc['locationType']}"].add(item["locationName"])
+                        else:
+                            continue
+                else:
+                    no_need_disambigious.append(loc)
+        need_disambigious = []
+        for loc in waiting_for_disambigious:
+            if len(loc_dic[f"{loc['locationName']}:{loc['locationType']}"]) >= 2:
+                need_disambigious.append(loc)
+            else:
+                del loc_dic[f"{loc['locationName']}:{loc['locationType']}"]
+                no_need_disambigious.append(loc)
+        return no_need_disambigious, need_disambigious, loc_dic
+
 
 class NlpRetrieval(Retrieval):
 
@@ -70,78 +109,61 @@ class NlpRetrieval(Retrieval):
         keyword_found = list(set(self.keyword_processor.extract_keywords(title + ". " + text)))
         return keyword_found
 
-    def get_location_candidates(self, location_names, google_found_names):
+    def get_location_candidates(self, location_names):
         summaries = []
-        waiting_for_disambugious = []
         for loc_name in location_names:
             cur_summary = self.geo_services.request_location_summaries_keyword(
                 loc_name)
-            if cur_summary == [] or cur_summary[0]["addressComponents"] or cur_summary[0]["addressComponents"][0]["locationName"]in google_found_names: continue
+            if cur_summary == []: continue
             for item in cur_summary:
+                if item["addressComponents"] == []: continue
                 reconstruct_version = self.summary_parser.reconstruct_summary(item)
                 reconstruct_version["salience"] = 0
                 reconstruct_version["source"] = "WikiMatch"
-                if reconstruct_version["locationType"] in ["LOCALITY", "SUB_ADMIN_AREA"]:
-                    waiting_for_disambugious.append(
-                        reconstruct_version["locationName"]+":"+reconstruct_version["locationType"])
                 summaries.append(reconstruct_version)
-        counter = dict(collections.Counter(waiting_for_disambugious))
-        waiting_for_disambugious = [k for k, v in counter.items() if v != 1]
-        return summaries, waiting_for_disambugious
+        return summaries
 
-    def get_location_candidates_bulk(self, location_names, google_found_names):
-        waiting_for_disambugious = []
+    def get_location_candidates_bulk(self, location_names):
         final_summaries = []
         summaries = self.geo_services.request_location_summaries_keyword_bulk(location_names)
         for summary in summaries:
             cur_summary = summary["locations"]
-            if cur_summary == [] or cur_summary[0]["addressComponents"] == [] or cur_summary[0]["addressComponents"][0]["locationName"]in google_found_names: continue
+            if cur_summary == []: continue
             for item in cur_summary:
+                if item["addressComponents"] == []: continue
                 reconstruct_version = self.summary_parser.reconstruct_summary(item)
                 reconstruct_version["salience"] = 0
                 reconstruct_version["source"] = "WikiMatch"
-                if reconstruct_version["locationType"] in ["LOCALITY", "SUB_ADMIN_AREA"]:
-                    waiting_for_disambugious.append(
-                        reconstruct_version["locationName"]+":"+reconstruct_version["locationType"])
                 final_summaries.append(reconstruct_version)
-        counter = dict(collections.Counter(waiting_for_disambugious))
-        waiting_for_disambugious = [k for k, v in counter.items() if v != 1]
-        return final_summaries, waiting_for_disambugious
+        return final_summaries
         
-
     def get_locations_via_google_entities(self, google_entities):
         summaries = []
-        unfound_names = []
-        found_names = []
         for entity in google_entities:
             wiki_url = entity.get("wikiURL", None)
-            name = entity["name"].lower()
             if entity.get("type", "") not in ["LOCATION", "PERSON", "ORGANIZATION"] or wiki_url is None or "en.wikipedia.org" not in wiki_url:
-                unfound_names.append(name)
                 continue
             try:
                 cur_summary = self.geo_services.request_location_summaries_wikiURL(wiki_url)
             except:
                 cur_summary = []
             if cur_summary == []:
-                unfound_names.append(name)
                 continue
-            found_names.append(cur_summary[0]["addressComponents"][0]["locationName"])
             for item in cur_summary:
+                if item["addressComponents"] == []: continue
                 reconstruct_version = self.summary_parser.reconstruct_summary(item)
                 reconstruct_version["salience"] = entity.get("salience", 0)
                 reconstruct_version["source"] = "GoogleEntity"
                 summaries.append(reconstruct_version)
-        return summaries, found_names, unfound_names
+        return summaries
     
     def get_locations(self, event):
         text_location_names = self.get_text_entity_names(event.get("slimTitle", ""), event.get("body", ""))
-        google_locations, google_found_names, google_unfound_names = self.get_locations_via_google_entities(
+        google_locations = self.get_locations_via_google_entities(
             event.get("googleEntities", []))
-        text_location_names = list(set(text_location_names + google_unfound_names))
-        text_locations, waiting_for_disambugious = self.get_location_candidates_bulk(
-            text_location_names, google_found_names)
-        return google_locations, text_locations, waiting_for_disambugious
+        text_locations = self.get_location_candidates_bulk(
+            text_location_names)
+        return google_locations, text_locations
 
     def get_admin_area_by_text(self, text, location=None, max_len=50, lower=True):
         patterns = [
@@ -242,23 +264,25 @@ class PublisherRetrieval(Retrieval):
         sql = f"""
             SELECT
                 location_id,
-                score
-            FROM location_local_publisher as t_l
-            INNER JOIN local_publisher as t_p
-            ON t_l.local_publisher_id = t_p.id
-            WHERE t_p.host = '{host}'
+                admin_area_id
+            FROM local_publisher as t_l
+            INNER JOIN publisher_location as t_p
+            ON t_l.id = t_p.local_publisher_id
+            WHERE t_l.host = '{host}'
                 AND t_l.status = 'ACCEPTED'
-                AND t_p.status = 'ACCEPTED'
         """
 
         records = query_location_master_db(sql)  # a list of dict
         locations = []
 
         for record in records:
-            location = self.geo_services.request_location_summary(by="location_id", location_id=record["location_id"])
-            location["algorithm"] = "LocalPublisher"
-            location["salience"] = record["score"]
-            locations.append(location)
+            location_id = record["location_id"]
+            summary = self.geo_services.request_location_summary_id(location_id=location_id)
+            if summary == [] or summary["addressComponents"] == []: continue
+            reconstruct_version = self.summary_parser.reconstruct_summary(summary)
+            reconstruct_version["salience"] = 0
+            reconstruct_version["source"] = "LocalPublisher"
+            locations.append(reconstruct_version)
 
         #pprint(locations, "locations associated with publisher")
         return locations
@@ -301,11 +325,12 @@ class FeatureRetrieval(Retrieval):
                 for location_id in include_location_ids:
                     summary = self.geo_services.request_location_summary_id(
                         location_id=location_id)
-                    if summary:
-                        summary["source"] = "Features"
-                        summary["salience"] = self.geo_services.feature_rule_salience
-                        locations.append(summary)
-        #pprint(locations, "locations associated with features")
+                    if summary == [] or summary["addressComponents"] == []: continue
+                    reconstruct_version = self.summary_parser.reconstruct_summary(summary)
+                    reconstruct_version["salience"] = 0
+                    reconstruct_version["source"] = "Features"
+                    locations.append(reconstruct_version)
+        pprint(locations, "locations associated with features")
         return locations
 
 

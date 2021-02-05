@@ -58,9 +58,8 @@ class Disambiguation(object):
 
         return features
 
-    def check_locations(self, url, text, df_pub_loc, admin_candidates, locations, waiting_for_disambugious, verbose=False):
+    def check_locations(self, url, text, df_pub_loc, admin_candidates, need_disambigious_locations, need_disambigious_dic, verbose=False):
         """Disambiguate possibly ambiguous locations.
-
         Parameters
         ----------
         url : str
@@ -76,7 +75,7 @@ class Disambiguation(object):
         """
 
         updated_locations = []
-        for loc in locations:
+        for loc in need_disambigious_locations:
             if loc.get("flag", 0) == 1: continue
             location_name = loc["locationName"]
             location_type = loc["locationType"]
@@ -85,35 +84,26 @@ class Disambiguation(object):
             if loc.get("inclusion_test", ""):
                 mark = True
 
-            if location_type in ["ADMIN_AREA", "COUNTRY"]:
-                updated_loc = loc
-                updated_loc["algorithm"] = "SelfMatch"
-                updated_loc["features"] = {}
-            elif location_name.lower() in text:
+            possible_locs = []
+            possible_admins = list(need_disambigious_dic[f"{loc['locationName']}:{loc['locationType']}"])
+            for i, e in enumerate(need_disambigious_locations):
+                if e["locationName"] == location_name and e["locationType"] == location_type:
+                    need_disambigious_locations[i]["flag"] = 1
+                    possible_locs.append(e)
+                    possible_admins.extend([x["locationName"] for x in e["addressComponents"] if x["locationType"] == "ADMIN_AREA"])
+
+            features = self.featurize_disambig_candidate(location_name, possible_admins, admin_candidates, text)
+            # disambiguous
+            picked_admin_area, algorithm, disambig_features = self.disambig_admin_area(possible_admins, features)
+
+            if len(disambig_features) > 1:
+                logging.info(f"Current ambiguous stratedges can solve the problem for {location_name}.")
                 continue
-            else:
-                # get possible admins
-                possible_locs, possible_admins = [], []
-                for i, e in enumerate(locations):
-                    if e["locationName"] == location_name and e["locationType"] == location_type:
-                        address_components = e.get("addressComponents", [])
-                        if address_components == []: continue
-                        locations[i]["flag"] = 1
-                        possible_locs.append(e)
-                        possible_admins.extend([x["locationName"] for x in address_components if x["locationType"] == "ADMIN_AREA"])
-
-                features = self.featurize_disambig_candidate(location_name, possible_admins, admin_candidates, text)
-                # disambiguous
-                picked_admin_area, algorithm, disambig_features = self.disambig_admin_area(possible_admins, features)
-
-                if len(disambig_features) > 1:
-                    logging.info(f"Current ambiguous stratedges can solve the problem for {location_name}.")
-                    continue
-            
-                loc_idx = possible_admins.index(picked_admin_area)
-                updated_loc = possible_locs[loc_idx]
-                updated_loc["algorithm"] = algorithm
-                updated_loc["features"] = disambig_features
+        
+            loc_idx = possible_admins.index(picked_admin_area)
+            updated_loc = possible_locs[loc_idx]
+            updated_loc["algorithm"] = algorithm
+            updated_loc["features"] = disambig_features
             
             if mark:
                 updated_loc["algorithm"] = self.inclusion_testing_prefix + \

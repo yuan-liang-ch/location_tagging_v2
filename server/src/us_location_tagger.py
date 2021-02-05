@@ -47,7 +47,7 @@ class LocationTagger(object):
 
         # Filter model initial
         self.location_feature_extractor = FeatureExtractor(
-            self.placelineTagger)
+            self.placelineTagger, self.nlp_retrieval_obj.full_2_short)
         self.lc_filter = LocationClassifier(configs["filter_model_path"])
 
     @timeit
@@ -105,9 +105,10 @@ class LocationTagger(object):
         # retrieval locations
         feature_locations = self.feature_retrieval_obj.get_locations_via_features(
             event["features"]) if event.get("features", None) else []
-        google_locations, text_locations, waiting_for_disambugious = self.nlp_retrieval_obj.get_locations(
-            event)
-        locations = feature_locations + google_locations + text_locations
+        publisher_locations = self.publisher_retrieval_obj.get_locations_via_publisher(event.get("url", ""))
+        google_locations, text_locations = self.nlp_retrieval_obj.get_locations(event)
+        no_need_disambigious_locations, need_disambigious_locations, need_disambigious_dic = self.nlp_retrieval_obj.retrieval_filter_locations(feature_locations, publisher_locations, google_locations, text_locations)
+        locations = no_need_disambigious_locations + need_disambigious_locations
         logger.info("[CandidateGeneration] sequence %s, Retrieval %d locations." % (event.get("sequence", ""), len(locations)))
 
         # Disambiguation
@@ -115,15 +116,16 @@ class LocationTagger(object):
                                                                          publisher_retrieval_obj=self.publisher_retrieval_obj,
                                                                          url_retrieval_obj=self.url_retrieval_obj,
                                                                          locations=locations,
-                                                                         waiting_for_disambugious=waiting_for_disambugious,
+                                                                         waiting_for_disambugious=need_disambigious_dic,
                                                                          text=event.get(
                                                                              "body", ""),
                                                                          url=event.get("url", ""))
 
-        locations = self.disambiguate_obj.check_locations(
+        disambigious_locations = self.disambiguate_obj.check_locations(
             event.get("url", ""), event.get(
                 "body", ""), self.publisher_retrieval_obj.df_pub_loc, admin_candidates,
-            locations, waiting_for_disambugious)
+            need_disambigious_locations, need_disambigious_dic)
+        locations = no_need_disambigious_locations + disambigious_locations
         logger.info("[Location Disambiguation] sequence %s, Retrieval %d locations." % (event.get("sequence", ""), len(locations)))
         #logger.info("[Location Disambiguation] sequence %s, locations are %s" % (event.get("sequence", ""), json.dumps(locations)))
 
@@ -133,6 +135,9 @@ class LocationTagger(object):
         if mode == "train":
             return locations
         location_result = self.lc_filter.predict_doc(locations)
+        s_location_result = json.dumps(location_result, default=str)
+        s_location_result = s_location_result.replace("locationName", "name")
+        location_result = json.loads(s_location_result)
 
         output = {"locations": location_result, "features": custom_features}
 

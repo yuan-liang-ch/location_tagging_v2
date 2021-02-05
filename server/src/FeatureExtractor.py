@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import re
 import logging
 from sys import argv
 from nltk import word_tokenize
@@ -63,9 +64,21 @@ class LocationCandidateProcessor(object):
 
 
 class FeatureExtractor(object):
-    def __init__(self, placelineTagger):
+    def __init__(self, placelineTagger, full_2_short):
         self.placelineTagger = placelineTagger
         self.loc_cand_processor = LocationCandidateProcessor()
+        self.full_2_short = full_2_short
+
+    def get_explicit_patterns(self, loc_name, admin):
+        result = []
+        escaped_name = loc_name.lower()
+        for admin_area_alias in self.full_2_short.get(admin, []) + [admin]:
+            comma_optional = "?"
+            if admin_area_alias in ["or", "in"]:
+                comma_optional = ""
+            escaped_alias = admin_area_alias
+            result.append(f"{escaped_name},{comma_optional} {escaped_alias}")
+        return result
 
     def extractFeatures(self, doc_id, title, bodytext, cg_cand_list, label, mode="predict"):
         if label == "" and mode == "train":
@@ -93,9 +106,15 @@ class FeatureExtractor(object):
                 if info_source == "WikiMatch":
                     features["FROM_TEXT"] = 1
                     features["FROM_GOOG"] = 0
+                    features["FROM_PUB"] = 0
+                elif info_source == "LocalPublishder":
+                    features["FROM_TEXT"] = 0
+                    features["FROM_GOOG"] = 0
+                    features["FROM_PUB"] = 1
                 else:
                     features["FROM_TEXT"] = 0
                     features["FROM_GOOG"] = 1
+                    features["FROM_PUB"] = 0
                 # TITLE feature
                 features["TITLE"] = 1 if LocationFeatureExtractor.existsInText(target_name, processed_title) else 0
                 # FREQuency feature
@@ -121,7 +140,8 @@ class FeatureExtractor(object):
                 features["STATE_ALL_CAP_FREQ"] = LocationFeatureExtractor.countOccurrences(state.upper(), processed_body) / doc_len
                 features["STATE_ALL_CAP_FIRST_POS"] = LocationFeatureExtractor.findFirstOccurrence(state.upper(), processed_body) / doc_len
                 # co-occurance
-                features["CO_OCCURANCE"] = 1 if "TextSpecificMention" in cg_cand["algorithm"] else 0
+                explicit_patterns = self.get_explicit_patterns(target_name, state)
+                features["CO_OCCURANCE"] = 1 if any(re.search(p, bodytext.lower()) is not None for p in explicit_patterns) else 0
                 # putting full name and all features back to cg_cand
                 cg_cand["henry_combo_name"] = full_name
                 if "filter_features" not in cg_cand:

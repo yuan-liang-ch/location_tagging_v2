@@ -63,11 +63,11 @@ class GeoService(object):
         if location_id == "":
             raise Exception("location_id should be provided.")
         base_url = os.path.join(
-            os.environ["snLocationPlatformEndpoint"], os.environ["locationID_field"])
+            os.environ["snLocationPlatformEndpoint"], os.environ["locationID_field"], str(location_id))
         proxy_kwargs = {"proxies": dict(http="socks5h://localhost:1080", https="socks5h://localhost:1080")} \
             if os.environ.get("use_proxy", "") == "true" else {}
         res = requests.get(base_url,
-                            params={"id": location_id, "locale": self.locale},
+                            params={"locale": self.locale},
                             headers={"Accept": "*/*"},
                             timeout=(self.connect_time_out, self.read_time_out), **proxy_kwargs)
         if res and res.status_code == 200:
@@ -143,6 +143,8 @@ class SummaryParser(object):
             if state is None:
                 continue
             if loc.get("locationType") != "ADMIN_AREA":
+                if loc["source"] == "LocalPublisher":
+                    weight = 5
                 if loc["source"] == "GoogleEntity":
                     weight = 2.5
                 elif loc.get("locationName", "") + ":" + loc.get("locationType", "") not in waiting_for_disambugious:

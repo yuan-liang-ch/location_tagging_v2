@@ -56,7 +56,7 @@ class LocationClassifier:
             ele["filter_features"]["prob"] = prob
             if pred == 1:
                 pred_true_loc.append(ele)
-            if prob >= max_prob and prob >= 0.1:
+            if prob >= max_prob:
                 max_prob = prob
                 best_loc = ele
         if pred_true_loc == []:

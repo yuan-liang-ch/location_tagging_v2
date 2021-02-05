@@ -3,9 +3,10 @@
 import requests
 import json
 
-url = 'http://localhost:8902/predict'
+url = 'http://localhost:8901/predict'
 #url = 'http://10.0.101.137:32792/predict'
 #url = 'http://10.0.101.181:32912/predict'
+#url = "http://internal-ecs-ai-infra-855912329.ap-northeast-1.elb.amazonaws.com:8901/predict"
 
 req = dict(
         sequence=123,
